@@ -11,8 +11,15 @@ jobs:
   build:
     runs-on: windows-latest
     steps:
+      
+      - name: Checkout workflow repository
+        uses: actions/checkout@v4
+
       - name: Download Whisper.cpp source
         uses: actions/checkout@v4
+        with:
+          repository: ggml-org/whisper.cpp
+          path: whisper.cpp
 
      
       - name: Install Vulkan SDK
@@ -25,7 +32,7 @@ jobs:
       - name: Configure
         shell: pwsh
         run: |
-          cmake -S . -B build -A x64 `
+         cmake -S whisper.cpp -B whisper.cpp/build -A x64 ` `
             -DGGML_VULKAN=ON `
             -DGGML_NATIVE=OFF `
             -DGGML_AVX=ON `
