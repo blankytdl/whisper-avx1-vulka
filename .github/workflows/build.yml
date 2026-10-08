@@ -1,0 +1,68 @@
+
+name: Build Whisper AVX1 Vulkan
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Download Whisper.cpp source
+        uses: actions/checkout@v4
+
+      - name: Install Vulkan SDK
+        uses: jakoch/install-vulkan-sdk-action@v1.0.4
+        with:
+          vulkan_version: 1.3.290.0
+          install_runtime: true
+          cache: true
+          stripdown: true
+
+      - name: Configure
+        shell: pwsh
+        run: |
+          cmake -S . -B build -A x64 `
+            -DGGML_VULKAN=ON `
+            -DGGML_NATIVE=OFF `
+            -DGGML_AVX=ON `
+            -DGGML_AVX2=OFF `
+            -DGGML_AVX_VNNI=OFF `
+            -DGGML_FMA=OFF `
+            -DGGML_F16C=OFF `
+            -DGGML_BMI2=OFF `
+            -DGGML_AVX512=OFF `
+            -DWHISPER_BUILD_SERVER=ON `
+            -DWHISPER_BUILD_EXAMPLES=ON `
+            -DWHISPER_BUILD_TESTS=OFF
+
+      - name: Compile
+        run: cmake --build build --config Release --parallel 2
+
+      - name: Package executables and DLLs
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force package | Out-Null
+          Get-ChildItem build -Recurse -File |
+            Where-Object {
+              $_.Extension -in @(".exe", ".dll")
+            } |
+            ForEach-Object {
+              Copy-Item $_.FullName package -Force
+            }
+
+          if (!(Test-Path package/whisper-server.exe)) {
+            throw "whisper-server.exe was not produced"
+          }
+          if (!(Test-Path package/whisper-cli.exe)) {
+            throw "whisper-cli.exe was not produced"
+          }
+
+      - name: Upload compiled files
+        uses: actions/upload-artifact@v4
+        with:
+          name: whisper-avx1-vulkan-windows
+          path: package/
