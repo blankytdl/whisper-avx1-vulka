@@ -29,23 +29,36 @@ jobs:
           cache: true
           stripdown: true
 
+  
       - name: Configure
         shell: pwsh
         run: |
-         cmake -S whisper.cpp -B whisper.cpp/build -A x64 ` `
-            -DGGML_VULKAN=ON `
-            -DGGML_NATIVE=OFF `
-            -DGGML_AVX=ON `
-            -DGGML_AVX2=OFF `
-            -DGGML_AVX_VNNI=OFF `
-            -DGGML_FMA=OFF `
-            -DGGML_F16C=OFF `
-            -DGGML_BMI2=OFF `
-            -DGGML_AVX512=OFF `
-            -DWHISPER_BUILD_SERVER=ON `
-            -DWHISPER_BUILD_EXAMPLES=ON `
-            -DWHISPER_BUILD_TESTS=OFF
-
+          $args = @(
+            "-S", "whisper.cpp",
+            "-B", "whisper.cpp/build",
+            "-A", "x64",
+            "-DGGML_VULKAN=ON",
+            "-DGGML_NATIVE=OFF",
+            "-DGGML_SSE42=ON",
+            "-DGGML_AVX=ON",
+            "-DGGML_AVX2=OFF",
+            "-DGGML_AVX_VNNI=OFF",
+            "-DGGML_BMI2=OFF",
+            "-DGGML_AVX512=OFF",
+            "-DWHISPER_BUILD_SERVER=ON",
+            "-DWHISPER_BUILD_EXAMPLES=ON",
+            "-DWHISPER_BUILD_TESTS=OFF"
+          )
+          cmake @args
+          if ($LASTEXITCODE -ne 0) {
+            throw "CMake configuration failed"
+          }
+         
+      - name: Verify CPU flags
+        shell: pwsh
+        run: |
+          Get-Content whisper.cpp/build/CMakeCache.txt |
+            Select-String '^(GGML_(NATIVE|SSE42|AVX|AVX2|AVX_VNNI|BMI2|AVX512|VULKAN)):BOOL='
   
       - name: Compile
         run: cmake --build whisper.cpp/build --config Release --parallel 2
